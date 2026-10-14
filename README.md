@@ -1,8 +1,8 @@
-# Etherbird
+# etherbird
 
 **Keep the client. Replace the connection.**
 
-Etherbird keeps async clients usable through connection failures. Define how to
+etherbird keeps async clients usable through connection failures. Define how to
 create, connect, and set up a resource once; the library replaces failed resources,
 restores their configuration and session, and waits for setup to finish before
 running application calls. Your application keeps using the same client.
@@ -29,6 +29,9 @@ logic, such as authentication, subscriptions, or a device handshake.
   without opting into replay. Shutdown takes precedence over timeout expiry.
 - **Bounded FIFO admission:** use `BoundedFifoQueue` with a queue factory to reject
   excess waiting calls without writing a custom queue.
+- **Adapter cancellation helper (0.4.2):** `RetireOnDrop` clears an
+  incomplete exchange's resource slot and signals connection loss. The adapter
+  explicitly confirms valid replies, including healthy device rejections.
 - **Explicit operation retries:** calls run once by default. Safe-to-repeat calls
   can opt into an attempt limit, overall deadline, and error predicate.
 - **Observable state and orderly shutdown:** connection indicators, state notifications,
@@ -42,9 +45,9 @@ Start with direct supervision for a client that supports concurrent calls. Enabl
 pooling when resources need exclusive access, capacity limits, or queued scheduling.
 
 ```toml
-etherbird = "0.4.1"
+etherbird = "0.4.2"
 # With pooling:
-# etherbird = { version = "0.4.1", features = ["pool"] }
+# etherbird = { version = "0.4.2", features = ["pool"] }
 ```
 
 The API is experimental. See the [managed client guide](docs/MANAGED_CLIENTS.md)

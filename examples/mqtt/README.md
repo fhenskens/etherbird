@@ -2,7 +2,7 @@
 
 After a broker outage, this application needs its subscriptions restored and
 acknowledged before it resumes publishing. Its message handler uses the same ordinary
-`publish` calls in all three variants. The comparison shows how Etherbird can move the
+`publish` calls in all three variants. The comparison shows how etherbird can move the
 readiness, recovery, and shutdown coordination into a reusable library.
 
 Three concurrent application tasks share the client: telemetry forwarding, a status
@@ -31,12 +31,12 @@ Read these sections in order:
    deadlines, reconnect backoff, generation tracking, operation cancellation, and
    shutdown. [harness.rs](manual/harness.rs) adapts its administrative methods to the
    shared checks; [native.rs](manual/native.rs) is an optional native-behavior probe.
-3. **Etherbird pooled:** [proxy.rs](etherbird/proxy.rs) declares the typed methods;
+3. **etherbird pooled:** [proxy.rs](etherbird/proxy.rs) declares the typed methods;
    [client.rs](etherbird/client.rs) configures a single-slot pool.
    [lifecycle.rs](etherbird/lifecycle.rs) declares
    protocol-specific hooks. [harness.rs](etherbird/harness.rs) supplies the same
    administrative test bridge as the manual version.
-4. **Etherbird direct:** [supervised/mod.rs](supervised/mod.rs) constructs the same
+4. **etherbird direct:** [supervised/mod.rs](supervised/mod.rs) constructs the same
    generated methods with `Client::from_supervisor(supervisor)`. This client permits
    concurrent publish calls without exclusive pool dispatch.
 
@@ -55,7 +55,7 @@ cargo run --features pool --example mqtt_with_etherbird -- --broker-demo 3
 cargo run --example mqtt_without_etherbird -- --native-only --broker-demo
 ```
 
-All three variants meet the application contract. Etherbird replaces the application-owned
+All three variants meet the application contract. etherbird replaces the application-owned
 coordinator; it still needs lifecycle configuration and the shared MQTT protocol
 logic. Compare the implementation folders, rather than the launchers or the
 optional native-only probe. Both use the same `publish(topic, qos, retain, payload)`

@@ -1,4 +1,4 @@
-//! Etherbird implementation: typed client, lifecycle declarations, and test bridge.
+//! etherbird implementation: typed client, lifecycle declarations, and test bridge.
 mod client;
 mod harness;
 mod lifecycle;

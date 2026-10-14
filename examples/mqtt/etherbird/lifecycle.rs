@@ -1,4 +1,4 @@
-//! Etherbird-specific lifecycle declarations. MQTT mechanics live in protocol.rs.
+//! etherbird-specific lifecycle declarations. MQTT mechanics live in protocol.rs.
 use super::protocol::{Message, Session};
 use etherbird::{Lifecycle, LifecycleFuture, async_trait};
 use std::{io, sync::Arc};

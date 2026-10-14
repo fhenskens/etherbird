@@ -1,4 +1,4 @@
-//! Real dependency clients; Etherbird owns their replacement and retry policy.
+//! Real dependency clients; etherbird owns their replacement and retry policy.
 use etherbird::{Lifecycle, LifecycleFuture, async_trait};
 use futures_util::{SinkExt, StreamExt};
 use std::{
@@ -53,19 +53,7 @@ pub struct Resource {
 
 // Dropping a request with an outstanding reply invalidates this session.
 // This also covers caller cancellation, which does not return an operation error.
-struct Exchange<'a> {
-    transport: &'a mut Option<Transport>,
-    connected: &'a watch::Sender<bool>,
-    completed: bool,
-}
-impl Drop for Exchange<'_> {
-    fn drop(&mut self) {
-        if !self.completed {
-            self.transport.take();
-            self.connected.send_replace(false);
-        }
-    }
-}
+
 impl Resource {
     pub async fn sample(&self) -> io::Result<u64> {
         self.transact(false).await
@@ -74,13 +62,9 @@ impl Resource {
         // Lease/heartbeat contention is not a dead peer: start the response
         // deadline only once this call owns the transport.
         let mut transport = self.transport.lock().await;
-        let mut exchange = Exchange {
-            transport: &mut transport,
-            connected: &self.connected,
-            completed: false,
-        };
+        let mut exchange = etherbird::RetireOnDrop::new(&mut transport, &self.connected);
         let result = timeout(Duration::from_millis(750), async {
-            match exchange.transport.as_mut() {
+            match exchange.resource() {
                 Some(Transport::WebSocket(socket)) => {
                     websocket_request(socket, if heartbeat { "HEARTBEAT" } else { "SAMPLE" }).await
                 }
@@ -111,32 +95,28 @@ impl Resource {
                 "protocol response deadline",
             ))
         });
-        exchange.completed = result.is_ok();
+        if result.is_ok() {
+            exchange.complete();
+        }
         result
     }
     pub async fn blocking_websocket(&self) -> io::Result<()> {
         let mut transport = self.transport.lock().await;
-        let mut exchange = Exchange {
-            transport: &mut transport,
-            connected: &self.connected,
-            completed: false,
-        };
-        let Some(Transport::WebSocket(socket)) = exchange.transport.as_mut() else {
+        let mut exchange = etherbird::RetireOnDrop::new(&mut transport, &self.connected);
+        let Some(Transport::WebSocket(socket)) = exchange.resource() else {
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not WebSocket"));
         };
         // The fixture confirms receipt, then withholds its reply until the outage.
         let result = websocket_request(socket, "BLOCK").await;
-        exchange.completed = result.is_ok();
+        if result.is_ok() {
+            exchange.complete();
+        }
         result.map(|_| ())
     }
     pub async fn blocking_modbus(&self) -> io::Result<()> {
         let mut transport = self.transport.lock().await;
-        let mut exchange = Exchange {
-            transport: &mut transport,
-            connected: &self.connected,
-            completed: false,
-        };
-        let Some(Transport::Modbus(context)) = exchange.transport.as_mut() else {
+        let mut exchange = etherbird::RetireOnDrop::new(&mut transport, &self.connected);
+        let Some(Transport::Modbus(context)) = exchange.resource() else {
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not Modbus"));
         };
         let result = context
@@ -146,7 +126,9 @@ impl Resource {
             .and_then(|result| {
                 result.map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
             });
-        exchange.completed = result.is_ok();
+        if result.is_ok() {
+            exchange.complete();
+        }
         result.map(|_| ())
     }
 }

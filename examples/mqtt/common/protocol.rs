@@ -1,4 +1,4 @@
-//! MQTT protocol work shared by both coordinators. No Etherbird dependency.
+//! MQTT protocol work shared by both coordinators. No etherbird dependency.
 use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS, SubscribeReasonCode};
 use std::{
     io,

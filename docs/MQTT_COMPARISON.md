@@ -1,4 +1,4 @@
-# MQTT session coordination, with and without Etherbird
+# MQTT session coordination, with and without etherbird
 
 For the runtime tradeoff, see [performance measurements](MQTT_PERFORMANCE.md).
 The [directly supervised variant](../examples/mqtt/supervised/mod.rs) uses the
@@ -24,7 +24,7 @@ all waiting callers. The broker harness verifies all three publishers' deliverie
 in connected traffic phases after each restart.
 
 The application keeps the same publish calls as connections come and go. With
-Etherbird, the client declares its lifecycle and lets the library coordinate when
+etherbird, the client declares its lifecycle and lets the library coordinate when
 those calls can proceed. This is the benefit the comparison exercises: keeping
 session recovery out of the message handler and reusing the coordination across
 resource types.
@@ -39,7 +39,7 @@ The required session contract is stronger than a live TCP connection:
 - Release waiting callers during shutdown and stop the MQTT driver.
 
 Both complete implementations meet this contract. The manual version shows the
-application-owned coordination needed to provide it; the Etherbird version shows
+application-owned coordination needed to provide it; the etherbird version shows
 which responsibilities can be delegated to the library.
 
 ## Reading the comparison
@@ -48,7 +48,7 @@ Both top-level files are equivalent launchers: load the common modules, load the
 selected implementation, run it, and invoke the same contract test. The supporting
 code is grouped in [the MQTT examples directory](../examples/mqtt/README.md):
 
-| Responsibility | Common | Manual | Etherbird pooled |
+| Responsibility | Common | Manual | etherbird pooled |
 | --- | --- | --- | --- |
 | Application handler and client contract | [application.rs](../examples/mqtt/common/application.rs) | Uses the common application | Uses the common application |
 | MQTT polling, subscriptions, and acknowledgements | [protocol.rs](../examples/mqtt/common/protocol.rs) | Uses the shared transport | Uses the shared transport |
@@ -59,10 +59,10 @@ code is grouped in [the MQTT examples directory](../examples/mqtt/README.md):
 
 Compare the complete implementation folders rather than launcher sizes. Both keep
 test bookkeeping separate from their clients. The manual client owns the state
-machine; the Etherbird client delegates that coordination to the library while
+machine; the etherbird client delegates that coordination to the library while
 retaining explicit construction and lifecycle definitions.
 
-## 1. Without Etherbird
+## 1. Without etherbird
 
 ```sh
 cargo run --example mqtt_without_etherbird -- --demo
@@ -77,9 +77,9 @@ requests, backoff, operation cancellation, and shutdown completion signal. Its
 `publish` method waits for a ready session, runs the operation once, and requests
 recovery on error. The application has to maintain and test this machinery.
 
-This demonstrates that Etherbird is optional: Tokio and rumqttc are enough to
+This demonstrates that etherbird is optional: Tokio and rumqttc are enough to
 implement the required behavior. It also exposes the coordination code that
-Etherbird can supply generically.
+etherbird can supply generically.
 
 ### Observe rumqttc's native behavior
 
@@ -103,7 +103,7 @@ resubscription on CONNACK directly, and persistent sessions can retain subscript
 The complete manual example adds the wider contract above, rather than relying on
 the minimal observation mode.
 
-## 2. Etherbird pooled
+## 2. etherbird pooled
 
 ```sh
 cargo run --features pool --example mqtt_with_etherbird -- --demo
@@ -131,7 +131,7 @@ client.publish(topic, QoS::AtMostOnce, false, payload).await?;
 ```
 
 The proxy acquires a resource only after lifecycle setup has completed. A caller
-waiting during an outage proceeds after the replacement's SUBACK. Etherbird owns
+waiting during an outage proceeds after the replacement's SUBACK. etherbird owns
 the coordinator, deadline/backoff policy, generation checks, queue cancellation,
 and shutdown; those mechanisms disappear from the example's application code.
 
@@ -140,7 +140,7 @@ This is a typed facade over the methods declared in the macro, not an automatic
 `Vec<u8>` values. Errors become `etherbird::Error<io::Error>`, with explicit stopped
 and queue outcomes. Streaming delivery remains a separate stable receiver.
 
-## 3. Etherbird direct
+## 3. etherbird direct
 
 ```sh
 cargo run --example mqtt_with_supervisor -- --demo
@@ -171,7 +171,7 @@ for the runtime tradeoff.
 
 All three variants use the same [protocol implementation](../examples/mqtt/common/protocol.rs).
 It owns rumqttc polling, MQTT acknowledgement interpretation, subscription submission,
-message routing, and driver cancellation. Etherbird does not implement those features.
+message routing, and driver cancellation. etherbird does not implement those features.
 rumqttc still supplies MQTT encoding, keepalive, connection-failure detection, and
 protocol acknowledgements.
 
@@ -210,5 +210,5 @@ and the application publishes QoS 0 without operation replay in both versions.
 
 The demonstrated benefit is reusable coordination for a stronger session contract.
 For an application needing only native reconnect and a short resubscription handler,
-using rumqttc directly may be simpler. Etherbird becomes more useful as lifecycle,
+using rumqttc directly may be simpler. etherbird becomes more useful as lifecycle,
 cancellation, and shutdown requirements accumulate or recur across different clients.

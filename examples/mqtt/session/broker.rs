@@ -9,7 +9,7 @@ const LIMIT: Duration = Duration::from_secs(15);
 const INPUTS: [&str; 2] = ["etherbird/temperature", "etherbird/humidity"];
 const OUTPUTS: [&str; 2] = ["etherbird/output/temperature", "etherbird/output/humidity"];
 
-// An independent test peer, with no Etherbird supervisor. It is recreated after
+// An independent test peer, with no etherbird supervisor. It is recreated after
 // each restart, while the application supervisor and receiver are retained.
 async fn peer(port: u16) -> Result<(Session, broadcast::Receiver<Message>)> {
     let (messages, receiver) = broadcast::channel(64);
@@ -108,7 +108,7 @@ pub(super) async fn demo(outages: usize) -> Result<()> {
             }
             if supervisor.current().is_some() { return Err("resource remained ready while offline".into()); }
             // Stop the independent peer; its subscriptions are deliberately not
-            // restored by Etherbird and it has no pending application messages.
+            // restored by etherbird and it has no pending application messages.
             witness.driver.lock().unwrap().as_ref().unwrap().abort();
             docker(&["start", &broker.name]).await?;
             let binding = docker(&["port", &broker.name, "1883/tcp"]).await?;

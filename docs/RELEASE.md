@@ -1,36 +1,37 @@
-# Release 0.4.1
+# Release 0.4.2
 
-Release date: 2026-10-09. This compatible release adds bounded FIFO admission and
-single-attempt operation/readiness timeouts. Existing signatures, defaults and
-retry behavior remain unchanged. Install `etherbird = "0.4.1"`, or enable pooling:
-`etherbird = { version = "0.4.1", features = ["pool"] }`.
+Release date: 2026-10-14. This compatible release adds the optional public
+`RetireOnDrop<T>` adapter helper and standardizes lowercase `etherbird` branding.
+Internal lifecycle driving, call timeout policy, pool dispatch and tracked jobs
+now live in focused modules. Existing public signatures and dispatch/recovery
+contracts are unchanged.
 
-The [changelog](../CHANGELOG.md) records release history; the
-[lifecycle guide](LIFECYCLE_POLICIES.md) defines current contracts.
+## Adapter contract
 
-## Contracts and compatibility
+The adapter holds `RetireOnDrop` across the exchange and reply validation.
+An incomplete drop clears its `Option<T>` slot before publishing connection loss.
+The adapter explicitly calls `complete()` for a valid exchange, including a healthy
+device rejection. The helper does not acquire locks, retry work, infer remote
+outcomes or run asynchronous lifecycle cleanup. See
+[the lifecycle guide](LIFECYCLE_POLICIES.md) and public API doctest.
 
-`BoundedFifoQueue` caps waiting entries and returns `QueueError::Full` on rejection.
-Zero capacity rejects every admission. Call timeouts include readiness/recovery,
-queueing where applicable, execution and any awaited failure teardown. Zero timeout
-starts no work; shutdown takes precedence. These calls never replay.
+The serial and Modbus/WebSocket adapters use the helper. Rocsteady is the external
+acceptance case for malformed-reply retirement, healthy rejection, timeouts,
+cancellation, generation invalidation and no replay.
 
-Pooled expiry signals cancellation to tracked jobs; awaited stop drains those jobs.
-Direct futures remain caller-owned. Adapters still retire interrupted protocol
-exchanges and explicitly close streams/destroy session state. A timeout does not
-establish remote completion. This release does not change 0.4.0 failure/reset or
-post-stop ownership contracts.
+## Validation and release procedure
 
-## Verification
+Local macOS ARM64 / stable Rust 1.99 checks cover default/all-feature/all-target
+suites, doctests, strict Clippy, formatting and package verification. Four new
+helper tests cover cancellation, timeout, drop-before-notification and explicitly
+completed device rejection. The real serial pseudo-terminal regression and
+Modbus/WebSocket recovery demo pass. Rocsteady's 76-test suite and its extracted
+package consumer pass with the local dependency before publication.
 
-Windows stable default/all-feature/all-target suites, doctests and strict Clippy
-pass. The 12 new queue/timeout regressions pass on Rust 1.88 with pooling; the six
-direct tests pass without pooling. An isolated Rocsteady consumer removes its local
-FIFO and timeout/shutdown wrapper using only public APIs: all 44 tests pass on
-stable and Rust 1.88; nine doctests pass on stable. Its production dependency is
-upgraded separately after publication.
-
-Release checks:
+Hosted CI checks stable Rust on Linux/macOS/Windows with direct/pooled builds and
+an additional Linux serial pseudo-terminal fixture. Validate the exact release
+commit's hosted run before publication. Local results do not establish hosted
+platform coverage.
 
 ```sh
 cargo fmt --check
@@ -39,23 +40,17 @@ cargo test --locked --all-features --all-targets
 cargo test --locked --all-features --doc
 cargo clippy --locked --all-features --all-targets -- -D warnings
 cargo doc --locked --all-features --no-deps
-cargo package --locked
 cargo publish --dry-run --locked
 ```
 
-Publish the clean committed release after package verification and dry-run.
-Cross-platform CI covers Windows/Linux/macOS with default and pooled builds plus
-a Linux serial fixture. Hosted results must be checked for the release commit;
-local Windows results alone do not establish Linux/macOS validation.
+Publish only the reviewed clean commit after dry-run and CI success; then push
+its `v0.4.2` tag. Verify the registry version and packaged VCS commit. Rocsteady
+must remove its temporary sibling path, regenerate the registry lockfile and
+repeat its package/consumer checks against the published crate.
 
-## Release locations
+[crates.io](https://crates.io/crates/etherbird/0.4.2) ·
+[API docs](https://docs.rs/etherbird/0.4.2/etherbird/) ·
+[CI](https://github.com/fhenskens/etherbird/actions/workflows/ci.yml)
 
-- [crates.io](https://crates.io/crates/etherbird/0.4.1)
-- [API documentation](https://docs.rs/etherbird/0.4.1/etherbird/)
-- [GitHub release](https://github.com/fhenskens/etherbird/releases/tag/v0.4.1)
-- [Cross-platform CI](https://github.com/fhenskens/etherbird/actions/workflows/ci.yml)
-- [Broker recovery CI](https://github.com/fhenskens/etherbird/actions/workflows/broker-recovery.yml)
-
-Verify these service endpoints after publication; a successful dry-run is not
-proof that a version has been published. Rocsteady tracks its own adoption and
-supported-platform validation separately.
+These endpoints and the release tag are verified after publication; a successful
+dry-run alone is not proof of publication.

@@ -1,6 +1,6 @@
 # Capabilities and guarantees
 
-This guide describes Etherbird's capabilities and behavioral guarantees. Regression
+This guide describes etherbird's capabilities and behavioral guarantees. Regression
 scenarios live alongside their assertions in the [tests](../tests/behavior.rs).
 For construction and execution-mode selection, see
 [the managed client guide](MANAGED_CLIENTS.md).
@@ -70,7 +70,7 @@ panic isolation. Both proxy forms share permanent shutdown across clones.
 
 Runnable MQTT, Modbus, WebSocket, and serial adapters are documented in
 [example adapters](EXAMPLES.md). The [MQTT comparison](MQTT_COMPARISON.md) shows
-the same application with manual coordination and an Etherbird managed client.
+the same application with manual coordination and an etherbird managed client.
 
 ## Opt-in operation retries
 

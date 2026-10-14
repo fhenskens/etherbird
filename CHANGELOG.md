@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.2 — 2026-10-14
+
+- Standardize lowercase `etherbird` branding in guides, examples and links.
+- Add optional `RetireOnDrop<T>` adapter plumbing: incomplete scopes clear a
+  resource slot and publish connection loss; adapters explicitly complete valid
+  replies, including healthy device rejections.
+- Reuse the helper in serial and Modbus/WebSocket adapters, with cancellation,
+  timeout, drop-order and completion regressions.
+- Separate lifecycle driving, call timeout policy, pool dispatch and tracked jobs
+  into internal modules without changing dispatch or lifecycle contracts.
+
 ## 0.4.1 â€” 2026-10-09
 
 - Add `BoundedFifoQueue` for generic bounded FIFO admission with explicit capacity,

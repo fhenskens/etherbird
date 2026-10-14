@@ -2,12 +2,12 @@
 
 Status: implemented for 0.4.0; release verification is recorded in
 [RELEASE.md](RELEASE.md). Scope agreed from the rocsteady review on 2026-10-09; baseline is
-published Etherbird 0.3.1. Work IDs are defined in
+published etherbird 0.3.1. Work IDs are defined in
 [outstanding work](OUTSTANDING_WORK.md#lifecycle-improvements-identified-by-rocsteady).
 
 ## Ownership and delivery boundary
 
-Etherbird owns lifecycle scheduling, readiness, admission, recovery, framework
+etherbird owns lifecycle scheduling, readiness, admission, recovery, framework
 configuration and internal resource ownership. Adapters classify their own errors
 and implement authentication, protocol validation and explicit session teardown.
 All four EB-ROC items belong here under that boundary. No ROC-specific error codes,
@@ -96,7 +96,7 @@ removed without conflating direct caller-owned futures with pooled draining.
   Diagnostics must not automatically format potentially sensitive adapter errors.
 - Design explicit reset/restart semantics before coding. No implicit acquire or
   execute may clear the failure latch. Reset starts fresh attempts using adapter
-  configuration; Etherbird need not introduce a general reconfiguration system.
+  configuration; etherbird need not introduce a general reconfiguration system.
 - Define pool aggregation: healthy slots keep serving work; an individual failed
   slot must not poison the whole pool. Avoid repeatedly spawning replacements for
   the same latched failure. Decide when no eligible slot can serve waiting work,
@@ -122,8 +122,8 @@ rejections, malformed-response recovery, cancellation, generation-state cleanup
 and no replay. Its local patches/path dependencies may be used for development
 checks only; published consumers and CI must use a published dependency.
 
-Publish the compatible or appropriately versioned Etherbird release through the
-normal release process. Etherbird completion requires implementation, checks,
+Publish the compatible or appropriately versioned etherbird release through the
+normal release process. etherbird completion requires implementation, checks,
 documentation and release evidence. Rocsteady's subsequent adoption and workaround
 removal are downstream tasks and do not block framework implementation completion.
 
@@ -139,7 +139,7 @@ retry/fail classification, typed redacted failure wrappers, explicit reset and
 all-failed pool admission. Stop releases resource caches and entries, while stored
 configuration and user registrations remain. Late hook tasks and external/user
 captures remain explicit ownership exceptions. No protocol-specific behavior was
-added to Etherbird.
+added to etherbird.
 
 Local Windows validation includes default and pool-enabled tests, all-target and
 all-feature Clippy, documentation generation, Rust 1.88 compilation/tests, the

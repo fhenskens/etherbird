@@ -31,31 +31,14 @@ pub(super) struct Instrument {
 
 // A cancelled or timed-out exchange can leave a partial reply. Retire its port
 // instead of allowing the next operation to consume that reply as its own.
-struct Exchange<'a> {
-    port: &'a mut Option<Port>,
-    connected: &'a watch::Sender<bool>,
-    completed: bool,
-}
-impl Drop for Exchange<'_> {
-    fn drop(&mut self) {
-        if !self.completed {
-            self.port.take();
-            self.connected.send_replace(false);
-        }
-    }
-}
+
 impl Instrument {
     pub(super) async fn request(&self, command: &[u8]) -> io::Result<String> {
         let mut port = self.port.lock().await;
-        let mut exchange = Exchange {
-            port: &mut port,
-            connected: &self.connected,
-            completed: false,
-        };
+        let mut exchange = etherbird::RetireOnDrop::new(&mut port, &self.connected);
         let result = timeout(Duration::from_millis(750), async {
             let port = exchange
-                .port
-                .as_mut()
+                .resource()
                 .ok_or_else(|| io::Error::new(io::ErrorKind::NotConnected, "serial port closed"))?;
             port.write_all(command).await?;
             // SerialStream writes are unbuffered. Its Unix flush calls tcdrain
@@ -83,7 +66,9 @@ impl Instrument {
                 "instrument reply deadline",
             ))
         });
-        exchange.completed = result.is_ok();
+        if result.is_ok() {
+            exchange.complete();
+        }
         result
     }
     pub(super) async fn sample(&self) -> io::Result<u64> {

@@ -15,7 +15,7 @@ struct CountingAllocator;
 static ALLOCATIONS: AtomicUsize = AtomicUsize::new(0);
 static BYTES: AtomicUsize = AtomicUsize::new(0);
 // Delegate every allocation to System. Counts include reallocations and all
-// runtime/fixture threads, not just allocations attributable to Etherbird.
+// runtime/fixture threads, not just allocations attributable to etherbird.
 unsafe impl GlobalAlloc for CountingAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         ALLOCATIONS.fetch_add(1, Ordering::Relaxed);

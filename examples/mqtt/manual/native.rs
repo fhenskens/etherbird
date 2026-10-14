@@ -1,6 +1,6 @@
 //! Minimal idiomatic rumqttc usage: native reconnect, one initial subscription.
 //! This deliberately does not implement the application session contract. The
-//! manual client in client.rs shows a complete implementation without Etherbird.
+//! manual client in client.rs shows a complete implementation without etherbird.
 use crate::common::{
     docker::{self, Broker},
     protocol::Message,

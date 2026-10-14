@@ -6,9 +6,9 @@ These examples demonstrate clients where the application supplies connection
 replacement and session setup. They use actual dependency clients. Operations run
 once by default; Modbus telemetry reads explicitly opt into bounded retries.
 The dependencies are development dependencies; they do not become requirements
-for applications using Etherbird.
+for applications using etherbird.
 
-| Library | Implementation | What Etherbird supplies |
+| Library | Implementation | What etherbird supplies |
 | --- | --- | --- |
 | [tokio-modbus](https://docs.rs/tokio-modbus/latest/tokio_modbus/) | [TCP adapter](../examples/live_recovery/adapter.rs), `Endpoint::Modbus` | Replacement contexts, bounded register requests, opt-in read retries, idle health probes, pooled scheduling, and shutdown of leased resources. |
 | [tokio-tungstenite](https://docs.rs/tokio-tungstenite/latest/tokio_tungstenite/) | [WebSocket adapter](../examples/live_recovery/adapter.rs), `Endpoint::WebSocket` | Reconnecting sessions, subscription restoration before readiness, idle heartbeats, and a stable managed resource facade. |
@@ -17,8 +17,8 @@ for applications using Etherbird.
 
 ## MQTT subscription sessions
 
-For a direct comparison, see [MQTT with and without Etherbird](MQTT_COMPARISON.md).
-The two examples share application code and checks; the Etherbird version uses a
+For a direct comparison, see [MQTT with and without etherbird](MQTT_COMPARISON.md).
+The two examples share application code and checks; the etherbird version uses a
 typed managed proxy with lifecycle definitions in a separate module. The manual
 version supplies its own complete coordinator and an optional native-only mode
 that demonstrates rumqttc's existing capabilities and the extra session policies.
@@ -49,7 +49,7 @@ reinstalls the desired subscriptions, while the application keeps the same messa
 receiver. No delivery handler needs to perform recovery.
 
 A dedicated task continuously polls rumqttc. It exits on connection errors so
-Etherbird alone controls recovery and backoff. Application delivery uses a bounded
+etherbird alone controls recovery and backoff. Application delivery uses a bounded
 broadcast channel of 64 messages; slow consumers receive `Lagged` errors, reported
 by the example, rather than blocking MQTT progress. Messages, including retained
 messages, can arrive during subscription setup and are buffered in this channel.
@@ -186,7 +186,7 @@ cargo run --features pool --example serial_device -- --demo
 ```
 
 The fixture completes setup, receives a sample command, and closes its port before
-replying. Etherbird creates a replacement, repeats the handshake, restores gain 7,
+replying. etherbird creates a replacement, repeats the handshake, restores gain 7,
 and reads 294 from the fixture's base measurement of 42. Each new fixture starts
 without a gain and requires configuration before sampling, so the result verifies
 device configuration restoration. Assertions also check that the failed operation ran once and that

@@ -1,4 +1,4 @@
-//! Session coordination written by the application, without Etherbird.
+//! Session coordination written by the application, without etherbird.
 use crate::common::protocol::{Message, Session};
 use rumqttc::QoS;
 use std::{

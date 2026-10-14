@@ -1,5 +1,22 @@
 # Lifecycle failure, validation and shutdown contracts
 
+## Adapter retirement helper (0.4.2)
+
+`RetireOnDrop<T>` is optional cancellation plumbing for adapters that keep
+`Option<T>` behind a lock and use a Tokio watch sender as their live connection
+indicator. Create it after acquiring ownership, borrow the resource with
+`resource()`, and hold it across writing, reading and validating the full reply.
+An incomplete drop clears the slot before publishing false. Call `complete()`
+for a fully validated exchange; a valid device rejection can also complete it.
+
+The helper does not decide whether a response is valid, infer remote outcomes,
+replay work, own the transport lock or run asynchronous lifecycle cleanup.
+Workflow ownership and protocol-specific between-exchange cancellation remain
+adapter responsibilities. Completion never restores an already-false connection
+indicator. Serial and Modbus/WebSocket examples demonstrate its use.
+
+## Existing lifecycle contracts
+
 Failure policies, checked construction and shutdown ownership are available since
 0.4.0; single-attempt timeouts and bounded FIFO are available since 0.4.1.
 The additions to Error and ResourceState and the post-stop
@@ -9,7 +26,7 @@ attribute change require migration of exhaustive matches and resource-derived re
 
 `Lifecycle::lifecycle_failure(error)` defaults to `LifecycleFailurePolicy::Retry`.
 Return `Fail` for create, created hooks/callbacks, connect, setup or disconnect-watch
-errors that cannot succeed without an explicit caller decision. Etherbird retains
+errors that cannot succeed without an explicit caller decision. etherbird retains
 the cause in `Arc<E>`, publishes `ResourceState::Failed`, and wakes readiness and
 admission waiters with `Error::Lifecycle`. Failed initialization never publishes a
 ready handle. Required teardown still runs with the existing deadlines.
@@ -62,7 +79,7 @@ Acquire, execute, begin and connected never clear a failure latch.
 `Supervisor::reset_failure()` (also on the direct proxy) returns true when it
 clears a suspended cause, permitting attempts after current teardown finishes.
 It returns false with no cause or after shutdown has been requested. Update the
-adapter's configuration before resetting; Etherbird adds no generic credential
+adapter's configuration before resetting; etherbird adds no generic credential
 replacement API. Stop/restart of a standalone supervisor clears the failure; a
 stopped proxy/pool remains permanently closed.
 
