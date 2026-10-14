@@ -17,6 +17,14 @@ indicator. Serial and Modbus/WebSocket examples demonstrate its use.
 
 ## Existing lifecycle contracts
 
+Internal cleanup after 0.4.2: supervisor and pool named values use the same
+registration store, setter construction and typed lookup. Resource application
+and lock ordering remain at their existing owners; the store acquires no locks.
+Call deadlines for retry scopes reuse the single-attempt deadline wrapper while
+retaining attempt limits, explicit replay predicates and overall queueing time.
+Existing zero-deadline retry calls admit no work. Positive-deadline calls report
+Stopped when shutdown is observable, including a race with completion/expiry.
+
 Failure policies, checked construction and shutdown ownership are available since
 0.4.0; single-attempt timeouts and bounded FIFO are available since 0.4.1.
 The additions to Error and ResourceState and the post-stop

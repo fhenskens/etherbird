@@ -1,6 +1,7 @@
 use super::*;
 
-/// Shared single-attempt timeout policy: zero never polls work; stop wins ties.
+/// Shared call deadline policy for single attempts and explicit retry scopes.
+/// Zero never polls work; stop wins ties.
 pub(super) async fn with_call_timeout<T, E>(
     duration: Duration,
     mut stopping: watch::Receiver<bool>,

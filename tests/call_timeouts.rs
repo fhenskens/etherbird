@@ -62,6 +62,45 @@ impl Drop for Dropped {
     }
 }
 const LIMIT: Duration = Duration::from_millis(10);
+fn retry_policy(timeout: Duration) -> etherbird::RetryPolicy {
+    etherbird::RetryPolicy {
+        max_attempts: 3.try_into().unwrap(),
+        timeout,
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn retry_shutdown_wins_over_completion_without_replay() {
+    let (s, created) = supervisor(false, false);
+    assert!(matches!(
+        s.execute_with_retry(retry_policy(Duration::ZERO), |_| async { Ok(()) }, |_| true)
+            .await,
+        Err(Error::Timeout)
+    ));
+    assert_eq!(created.load(Ordering::SeqCst), 0);
+    let stop = s.clone();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let count = calls.clone();
+    let result = s
+        .execute_with_retry(
+            retry_policy(LIMIT),
+            move |_| {
+                let stop = stop.clone();
+                let count = count.clone();
+                async move {
+                    count.fetch_add(1, Ordering::SeqCst);
+                    stop.stop().await;
+                    Ok(())
+                }
+            },
+            |_| true,
+        )
+        .await;
+    assert!(matches!(result, Err(Error::Stopped)));
+    s.stop().await;
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
 #[tokio::test(start_paused = true)]
 async fn zero_never_starts_and_stop_precedes_zero() {
     let (s, created) = supervisor(false, false);
@@ -188,6 +227,59 @@ mod pooled {
             move || BoundedFifoQueue::new(capacity),
         )
         .unwrap()
+    }
+    #[tokio::test(start_paused = true)]
+    async fn retry_deadline_includes_queueing_and_canceled_work_never_runs_late() {
+        let p = pool(1, false, false);
+        let lease = p.borrow().await.unwrap();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let count = calls.clone();
+        assert!(matches!(
+            p.execute_with_priority_and_retry(
+                7,
+                retry_policy(LIMIT),
+                move |_| {
+                    count.fetch_add(1, Ordering::SeqCst);
+                    async { Ok(()) }
+                },
+                |_| true
+            )
+            .await,
+            Err(Error::Timeout)
+        ));
+        for _ in 0..10 {
+            tokio::task::yield_now().await;
+        }
+        drop(lease);
+        assert_eq!(p.execute(|_| async { Ok(42) }).await.unwrap(), 42);
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+        p.stop().await;
+    }
+    #[tokio::test(start_paused = true)]
+    async fn retry_pool_shutdown_drains_active_work_and_never_replays() {
+        let p = pool(1, false, false);
+        let other = p.clone();
+        let started = Arc::new(tokio::sync::Notify::new());
+        let signal = started.clone();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let count = calls.clone();
+        let task = tokio::spawn(async move {
+            other
+                .execute_with_retry(
+                    retry_policy(LIMIT),
+                    move |_| {
+                        count.fetch_add(1, Ordering::SeqCst);
+                        signal.notify_one();
+                        pending::<io::Result<()>>()
+                    },
+                    |_| true,
+                )
+                .await
+        });
+        started.notified().await;
+        p.stop().await;
+        assert!(matches!(task.await.unwrap(), Err(Error::Stopped)));
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
     #[test]
     fn bounded_fifo_order_capacity_and_drop_contract() {

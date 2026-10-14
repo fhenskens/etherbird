@@ -127,14 +127,14 @@ impl<T: Ord + Send> OperationQueue<T> for PriorityQueue<T> {
 /// Zero capacity rejects every push (including when a resource is ready).
 /// Use with `Pool::try_new_with_queue_factory`; admission always visits this queue.
 pub struct BoundedFifoQueue<T> {
-    items: VecDeque<T>,
+    items: FifoQueue<T>,
     capacity: usize,
 }
 impl<T> BoundedFifoQueue<T> {
     /// Construct an empty queue without preallocating its maximum capacity.
     pub fn new(capacity: usize) -> Self {
         Self {
-            items: VecDeque::new(),
+            items: FifoQueue::default(),
             capacity,
         }
     }
@@ -147,11 +147,10 @@ impl<T: Send> OperationQueue<T> for BoundedFifoQueue<T> {
         if self.items.len() >= self.capacity {
             return Err(QueueError::Full);
         }
-        self.items.push_back(item);
-        Ok(())
+        self.items.push(item)
     }
     fn pop(&mut self) -> Option<T> {
-        self.items.pop_front()
+        self.items.pop()
     }
     fn len(&self) -> usize {
         self.items.len()

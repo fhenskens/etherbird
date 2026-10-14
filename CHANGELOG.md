@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Share named setter/value registration mechanics between Supervisor and Pool
+  while retaining their locks and application ordering.
+- Use the common call-deadline wrapper for retry scopes, including queued calls
+  and held leases; observable shutdown wins races with completion/expiry.
+- Implement bounded FIFO admission around the existing unbounded FIFO storage.
+- Add retry regressions for queueing deadlines, cancellation and shutdown without replay.
+
 ## 0.4.2 — 2026-10-14
 
 - Standardize lowercase `etherbird` branding in guides, examples and links.

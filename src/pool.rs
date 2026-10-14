@@ -7,8 +7,6 @@ use crate::{
 use dispatch::{all_failed, borrow, reserve_ready, run};
 use job::{CancelOnDrop, run_job};
 use std::{
-    any::Any,
-    collections::BTreeMap,
     future::Future,
     pin::Pin,
     sync::{
@@ -111,8 +109,7 @@ struct Contents<L: Lifecycle> {
     entries: Vec<Arc<Entry<L>>>,
     queue: Box<dyn OperationQueue<QueuedOperation<L>>>,
     sequence: u64,
-    attributes: BTreeMap<String, AttributeSetter<L::Resource>>,
-    values: BTreeMap<String, Arc<dyn Any + Send + Sync>>,
+    registrations: crate::Registrations<L::Resource>,
     retiring: usize,
 }
 struct Shared<L: Lifecycle> {
@@ -146,7 +143,9 @@ impl<L: Lifecycle> Shared<L> {
                     .as_ref()
                     .is_some_and(|last| Arc::ptr_eq(last, resource));
             }
-            attributes.setters.insert(name.to_owned(), setter.clone());
+            attributes
+                .registrations
+                .insert_setter(name.to_owned(), setter.clone());
         }
         if !last_updated && let Some(resource) = last_resource {
             setter(&resource);
@@ -159,7 +158,7 @@ impl<L: Lifecycle> Shared<L> {
     }
     fn grow(self: &Arc<Self>, contents: &mut Contents<L>) {
         let supervisor = (self.factory)();
-        for (name, setter) in &contents.attributes {
+        for (name, setter) in contents.registrations.setters() {
             supervisor.set_attribute(name.clone(), setter.clone());
         }
         let weak = Arc::downgrade(self);
@@ -361,8 +360,7 @@ impl<L: Lifecycle> Pool<L> {
                 entries: Vec::new(),
                 queue: Box::new(queue),
                 sequence: 0,
-                attributes: BTreeMap::new(),
-                values: BTreeMap::new(),
+                registrations: crate::Registrations::default(),
                 retiring: 0,
             }),
             operations: Mutex::new(JoinSet::new()),
@@ -547,7 +545,7 @@ impl<L: Lifecycle> Pool<L> {
         let name = name.into();
         let mut contents = self.shared.contents.lock().unwrap();
         self.shared.apply_attribute(&contents, &name, &setter);
-        contents.attributes.insert(name, setter);
+        contents.registrations.insert_setter(name, setter);
     }
     pub fn set_value<T: Clone + Send + Sync + 'static>(
         &self,
@@ -556,24 +554,19 @@ impl<L: Lifecycle> Pool<L> {
         apply: impl Fn(&L::Resource, &T) + Send + Sync + 'static,
     ) {
         let name = name.into();
-        let value = Arc::new(value);
-        let stored = value.clone();
-        let setter: AttributeSetter<L::Resource> =
-            Arc::new(move |resource| apply(resource, &value));
+        let (stored, setter) = crate::value_setter(value, apply);
         let mut contents = self.shared.contents.lock().unwrap();
         self.shared.apply_attribute(&contents, &name, &setter);
-        contents.values.insert(name.clone(), stored);
-        contents.attributes.insert(name, setter);
+        contents.registrations.store(name.clone(), stored);
+        contents.registrations.insert_setter(name, setter);
     }
     pub fn value<T: Clone + Send + Sync + 'static>(&self, name: &str) -> Option<T> {
         self.shared
             .contents
             .lock()
             .unwrap()
-            .values
-            .get(name)?
-            .downcast_ref::<T>()
-            .cloned()
+            .registrations
+            .value(name)
     }
     pub fn set_on_resource_created(&self, hook: CreatedHook<L::Resource, L::Error>) {
         *self.shared.on_created.lock().unwrap() = Some(hook);
@@ -680,9 +673,7 @@ impl<L: Lifecycle> Pool<L> {
         let queued = self.enqueue(priority, move |lease| async move {
             lease.execute_with_retry(policy, operation, retry_if).await
         });
-        tokio::time::timeout(policy.timeout, queued)
-            .await
-            .unwrap_or(Err(Error::Timeout))
+        crate::with_call_timeout(policy.timeout, self.stopped(), queued).await
     }
     async fn enqueue<F, Fut, T>(&self, priority: i32, operation: F) -> Result<T, Error<L::Error>>
     where
@@ -834,12 +825,14 @@ impl<L: Lifecycle> ResourceLease<L> {
         Fut: Future<Output = Result<T, L::Error>>,
         P: FnMut(&L::Error) -> bool,
     {
-        let mut stopping = self.shared.stopping.subscribe();
-        tokio::select! {
-            biased;
-            _ = crate::shutdown(&mut stopping) => Err(Error::Stopped),
-            result = self.entry.supervisor.execute_with_retry(policy, operation, retry_if) => result,
-        }
+        crate::with_call_timeout(
+            policy.timeout,
+            self.shared.stopping.subscribe(),
+            self.entry
+                .supervisor
+                .execute_with_retry(policy, operation, retry_if),
+        )
+        .await
     }
 }
 impl<L: Lifecycle> Drop for ResourceLease<L> {

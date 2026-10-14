@@ -321,7 +321,7 @@ pub(super) async fn maintain<L: Lifecycle>(
                         }
                         {
                             let settings = settings.lock().unwrap();
-                            for setter in settings.setters.values() {
+                            for (_, setter) in settings.registrations.setters() {
                                 setter(&value);
                             }
                         }

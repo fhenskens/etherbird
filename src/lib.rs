@@ -5,14 +5,11 @@
 //! Lifecycle futures must be cancellation-safe.
 
 pub use async_trait::async_trait;
-use std::{any::Any, fmt, future::Future, pin::Pin, sync::Arc, time::Duration};
-use std::{
-    collections::BTreeMap,
-    sync::{
-        Mutex,
-        atomic::{AtomicBool, AtomicU64, Ordering},
-    },
+use std::sync::{
+    Mutex,
+    atomic::{AtomicBool, AtomicU64, Ordering},
 };
+use std::{fmt, future::Future, pin::Pin, sync::Arc, time::Duration};
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::{sleep, timeout};
 #[cfg(feature = "pool")]
@@ -21,6 +18,8 @@ mod pool;
 mod queue;
 #[cfg(feature = "pool")]
 pub use pool::{ManagedResourceProxy, Pool, PoolConfig, QueuedOperation, ResourceLease};
+mod attributes;
+use attributes::{Registrations, value_setter};
 mod call;
 mod driver;
 use call::{shutdown, with_call_timeout};
@@ -263,9 +262,8 @@ pub type LifecycleFuture<E> = Pin<Box<dyn Future<Output = Result<(), E>> + Send>
 pub type CreatedHook<R, E> = Arc<dyn Fn(Arc<R>) -> LifecycleFuture<E> + Send + Sync>;
 pub type AttributeSetter<R> = Arc<dyn Fn(&R) + Send + Sync>;
 struct Attributes<R, E> {
-    setters: BTreeMap<String, AttributeSetter<R>>,
+    registrations: Registrations<R>,
     last: Option<Arc<R>>,
-    values: BTreeMap<String, Arc<dyn Any + Send + Sync>>,
     on_created: Option<CreatedHook<R, E>>,
     after_created: Option<CreatedHook<R, E>>,
 }
@@ -326,9 +324,8 @@ impl<L: Lifecycle> Supervisor<L> {
         });
         let (recovery, requests) = mpsc::unbounded_channel();
         let attributes = Arc::new(Mutex::new(Attributes {
-            setters: BTreeMap::new(),
+            registrations: Registrations::default(),
             last: None,
-            values: BTreeMap::new(),
             on_created: None,
             after_created: None,
         }));
@@ -430,7 +427,7 @@ impl<L: Lifecycle> Supervisor<L> {
         if let Some(resource) = &attributes.last {
             setter(resource);
         }
-        attributes.setters.insert(name.into(), setter);
+        attributes.registrations.insert_setter(name.into(), setter);
     }
     /// Store a typed value that is readable before creation and replay it on replacement.
     pub fn set_value<T: Clone + Send + Sync + 'static>(
@@ -440,25 +437,16 @@ impl<L: Lifecycle> Supervisor<L> {
         apply: impl Fn(&L::Resource, &T) + Send + Sync + 'static,
     ) {
         let name = name.into();
-        let value = Arc::new(value);
-        let stored = value.clone();
-        let setter: AttributeSetter<L::Resource> =
-            Arc::new(move |resource| apply(resource, &value));
+        let (stored, setter) = value_setter(value, apply);
         let mut attributes = self.attributes.lock().unwrap();
-        attributes.values.insert(name.clone(), stored);
+        attributes.registrations.store(name.clone(), stored);
         if let Some(resource) = &attributes.last {
             setter(resource);
         }
-        attributes.setters.insert(name, setter);
+        attributes.registrations.insert_setter(name, setter);
     }
     pub fn value<T: Clone + Send + Sync + 'static>(&self, name: &str) -> Option<T> {
-        self.attributes
-            .lock()
-            .unwrap()
-            .values
-            .get(name)?
-            .downcast_ref::<T>()
-            .cloned()
+        self.attributes.lock().unwrap().registrations.value(name)
     }
     pub fn set_on_resource_created(&self, hook: CreatedHook<L::Resource, L::Error>) {
         self.attributes.lock().unwrap().on_created = Some(hook);
@@ -672,7 +660,7 @@ impl<L: Lifecycle> Supervisor<L> {
         if policy.timeout.is_zero() {
             return Err(Error::Timeout);
         }
-        let mut stopping = self.owner.stop.subscribe();
+        let stopping = self.owner.stop.subscribe();
         let retry_stopping = stopping.clone();
         let attempts = async {
             for attempt in 1..=policy.max_attempts.get() {
@@ -688,11 +676,7 @@ impl<L: Lifecycle> Supervisor<L> {
             }
             unreachable!("a nonzero final attempt always returns")
         };
-        tokio::select! {
-            biased;
-            _ = shutdown(&mut stopping) => Err(Error::Stopped),
-            result = timeout(policy.timeout, attempts) => result.unwrap_or(Err(Error::Timeout)),
-        }
+        with_call_timeout(policy.timeout, stopping, attempts).await
     }
     /// Idempotent, cancellation-safe shutdown. Clears resource-derived caches,
     /// preserving stored configuration and registrations. External handles and
