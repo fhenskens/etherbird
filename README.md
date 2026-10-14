@@ -235,8 +235,9 @@ client.managed.stop().await;
 let readings = result?;
 ```
 
-Use a [custom queue](examples/scheduling.rs) when you also need overload rejection
-or a different scheduling policy; the built-in queues are unbounded. State watchers
+Use `BoundedFifoQueue` for bounded waiting admission, or a
+[custom queue](examples/scheduling.rs) for another rejection/scheduling policy.
+`FifoQueue` and `PriorityQueue` are unbounded. State watchers
 can await `changes.changed()` and inspect `pool.state()`. Configure a `tracing`
 subscriber to collect lifecycle diagnostics.
 
@@ -248,7 +249,7 @@ mutable access. Direct calls run in their callers, while pooled calls are tracke
 and drained by the library during shutdown.
 
 [API reference](https://docs.rs/etherbird) ·
-[Engineering tasks](docs/OUTSTANDING_WORK.md) ·
+[Current handoff and engineering tasks](docs/OUTSTANDING_WORK.md) ·
 [CI](.github/workflows/ci.yml) ·
 [Real broker recovery checks](.github/workflows/broker-recovery.yml)
 

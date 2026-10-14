@@ -1,5 +1,35 @@
 # Outstanding work
 
+## Current handoff — 2026-10-15
+
+- **Published:** 0.4.2 supplies RetireOnDrop and the existing lifecycle, admission,
+  timeout and shutdown contracts. Rocsteady 0.1.0 depends on registry 0.4.2;
+  downstream registry adoption and package-consumer checks are complete.
+- **Implemented but unreleased:** shared named-value registration, common retry
+  deadline handling and FIFO storage reuse, with retry/cancellation/shutdown
+  regressions. These internal changes are committed; see [Unreleased](../CHANGELOG.md#unreleased).
+  They do not require a release solely for rocsteady's current functionality.
+- **Open:** the pool-dispatch performance investigation below. Retained incremental
+  improvements have not resolved the main scheduling cost. The inline-polling
+  experiment was discarded; no such feature or implementation is in progress.
+- **Evidence:** the published release and subsequent cleanup each passed the seven
+  hosted platform/serial jobs recorded in [RELEASE.md](RELEASE.md). Measurements
+  retain their original platform/workload limits; successful CI is not new
+  performance evidence.
+- **Development policy:** current stable Rust; protocol validation, authentication
+  procedures and remote-outcome semantics belong in adapters. Repository Git email
+  is fhenskens@yahoo.com. Historical Rust 1.88 checks are not a current support promise.
+
+## Recommended next investigation
+
+Extend the existing allocation/CPU profiles with a non-WSL Linux baseline and
+realistic slow operations or independently scheduled borrowers. Use the existing
+manual/direct/pooled benchmark paths before selecting another optimization.
+Preserve pooled independent cancellation/draining, exclusive ownership, queue
+ordering and deadlines; direct caller-owned execution has different guarantees.
+Record platform variation and improve the implementation only where the evidence
+supports it. No new optimization has been selected or started.
+
 ## Reduce pooled operation dispatch overhead
 
 Status: open. The inline polling spike was discarded; its measurements are retained.
@@ -88,8 +118,10 @@ guarantees remains open.
 
 Lifecycle failure policies, operation classification, checked configuration and
 shutdown resource ownership shipped in 0.4.0. Bounded FIFO admission and
-single-attempt call/readiness timeouts ship in 0.4.1. Protocol behavior and
-adapter migration remain downstream responsibilities.
+single-attempt call/readiness timeouts shipped in 0.4.1. RetireOnDrop and the
+internal module split shipped in 0.4.2. The subsequent registration/deadline/FIFO
+cleanup remains unreleased. Rocsteady adoption is complete; protocol behavior and
+future adapter migrations remain downstream responsibilities.
 
 Use the [feature contracts](LIFECYCLE_POLICIES.md), [release verification](RELEASE.md)
 and [changelog](../CHANGELOG.md) for behavior and evidence. The historical

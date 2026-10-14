@@ -2,8 +2,10 @@
 
 Status: implemented for 0.4.0; release verification is recorded in
 [RELEASE.md](RELEASE.md). Scope agreed from the rocsteady review on 2026-10-09; baseline is
-published etherbird 0.3.1. Work IDs are defined in
-[outstanding work](OUTSTANDING_WORK.md#lifecycle-improvements-identified-by-rocsteady).
+published etherbird 0.3.1. The EB-ROC work IDs and implementation steps are retained in this historical plan.
+For current work, see [the handoff and backlog](OUTSTANDING_WORK.md).
+Current development uses stable Rust; Rust 1.88 commands below are historical
+validation, not an ongoing compatibility requirement.
 
 ## Ownership and delivery boundary
 
@@ -156,7 +158,8 @@ The adapter maps the shared authentication cause to its existing public error sh
 and keeps positive protocol deadlines, stop precedence and explicit Session cleanup.
 All 43 consumer tests (3 configuration, 11 extension, 18 integration, 11 protocol)
 pass on current Rust and Rust 1.88 with all features/targets. This validates the
-adoption design; the actual rocsteady dependency remains published 0.3.1.
+adoption design; rocsteady still used published 0.3.1 at that time. Its later
+0.1.0 release completed adoption of registry etherbird 0.4.2.
 
 Reproduction commands from this checkout after preparing that temporary consumer:
 
@@ -174,4 +177,4 @@ cargo +1.88.0 test --offline --manifest-path scratch/rocsteady-lifecycle-consume
 The temporary consumer and its preparation script are local validation artifacts,
 not required inputs for framework tests or published consumers. Release checks and
 cross-platform CI evidence are tracked in [RELEASE.md](RELEASE.md). Production
-rocsteady adoption is a separate downstream task.
+rocsteady adoption was a separate downstream task and is now complete.

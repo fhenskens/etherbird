@@ -20,7 +20,7 @@
 - Separate lifecycle driving, call timeout policy, pool dispatch and tracked jobs
   into internal modules without changing dispatch or lifecycle contracts.
 
-## 0.4.1 â€” 2026-10-09
+## 0.4.1 — 2026-10-09
 
 - Add `BoundedFifoQueue` for generic bounded FIFO admission with explicit capacity,
   `QueueError::Full`, cancellation-compatible retention and zero-capacity rejection.
