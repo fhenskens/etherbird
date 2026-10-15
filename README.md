@@ -248,6 +248,20 @@ Resources must be `Send + Sync`; use interior mutability where their APIs need
 mutable access. Direct calls run in their callers, while pooled calls are tracked
 and drained by the library during shutdown.
 
+## Documentation
+
+| Guide | Purpose |
+| --- | --- |
+| [Managed clients](docs/MANAGED_CLIENTS.md) | Choose direct supervision or pooled ownership and construct a typed client |
+| [Capabilities](docs/FEATURES.md) | Current APIs and guarantees |
+| [Lifecycle policies](docs/LIFECYCLE_POLICIES.md) | Failure, timeout, cancellation, ownership and migration contracts |
+| [Examples](docs/EXAMPLES.md) | MQTT, Modbus, WebSocket and serial adapter usage |
+| [Live recovery](docs/LIVE_RECOVERY.md) | Reproduce socket fault/recovery checks and interpret their evidence |
+| [MQTT comparison](docs/MQTT_COMPARISON.md) | Compare manual, direct and pooled coordination |
+| [Performance reports](docs/MQTT_PERFORMANCE.md) and [admission measurements](docs/POOL_DISPATCH_PERFORMANCE.md) | Reproduction methods, retained results and limitations |
+| [Open work](docs/OUTSTANDING_WORK.md) | Current handoff, next investigation and acceptance criteria |
+| [Changelog](CHANGELOG.md) and [release evidence](docs/RELEASE.md) | Completed changes, publication and validation records |
+
 [API reference](https://docs.rs/etherbird) ·
 [Current handoff and engineering tasks](docs/OUTSTANDING_WORK.md) ·
 [CI](.github/workflows/ci.yml) ·

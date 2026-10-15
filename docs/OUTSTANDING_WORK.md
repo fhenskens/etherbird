@@ -32,97 +32,50 @@ supports it. No new optimization has been selected or started.
 
 ## Reduce pooled operation dispatch overhead
 
-Status: open. The inline polling spike was discarded; its measurements are retained.
-Scope: `Pool::execute` and the typed managed proxy's pooled call path.
+Status: open. Scope: `Pool::execute` and the typed managed proxy's pooled call path.
+Small operations show substantial coordination costs in recorded WSL workloads;
+Windows behaves differently. This does not establish the cost for every workload.
+No new optimization has been selected or started.
 
-Small operations can spend more time in pool coordination than in useful work.
-The [MQTT scheduler investigation](MQTT_PERFORMANCE.md#checking-scheduler-handoffs)
-found that the pooled path on Ubuntu/WSL admitted about 39,524 publishes/sec with
-three callers on the default runtime, compared with 200,671 on current-thread.
-Pooled suite CPU dropped from roughly 7.2 seconds to 0.8 seconds, and voluntary
-context switches dropped from about 192,000 to 117. Direct supervision performed
-in the same range as manual coordination. Windows responded differently.
+### Remaining work
 
-Subsequent [WSL CPU profiles](MQTT_PERFORMANCE.md#wsl-cpu-profiles) succeeded with
-`perf`: roughly 32% of default-runtime pooled samples include the futex syscall,
-with wakeup stacks through Tokio scheduling and the pool's operation future.
-The pooled suite used 6.09 CPU seconds versus 0.84 on current-thread; the latter
-still executed about 2.2 times the manual suite's instructions.
+- [ ] Reproduce a baseline on non-WSL Linux; extend CPU/allocation measurements to
+  macOS and Windows CPU where available. Separate platform effects from the
+  coordination cost before choosing an implementation.
+- [ ] Profile remaining notifications, cancellation scans, boxed jobs, result
+  channels, task-registry synchronization and repeated subscriptions within the
+  existing Tokio task model.
+- [ ] Exercise real slow transports, multiple slots and independently scheduled
+  borrowers. Measure concurrency and fairness as well as tiny-operation throughput.
+- [ ] Consider caller-side execution only with a design that preserves independent
+  pooled cancellation and draining; an unpolled caller must not block teardown.
+- [ ] Compare any candidate against manual, direct and pooled baselines with 1, 3
+  and 16 callers on current-thread, two-worker and default runtimes. Report
+  throughput, tail latency, CPU, context switches and allocations per platform.
 
-These observations implicate scheduling handoffs but do not identify the precise
-cost of each notification, allocation, lock, or task dispatch. This is an
-optimization opportunity, not evidence that every pooled workload has the same cost.
+### Evidence to retain
 
-Work to investigate:
+The [MQTT performance report](MQTT_PERFORMANCE.md) records scheduler comparisons,
+CPU profiles, retained incremental changes and the discarded inline-polling spike.
+The [admission report](POOL_DISPATCH_PERFORMANCE.md) records allocations,
+uncontended admission and remaining slow-operation/borrower measurements.
+Raw measurements remain under `docs/benchmarks/` with their reproduction context.
 
-- Extend the captured WSL stack profiles with a comparison on another Linux
-  environment; distinguish WSL effects from general behavior. Initial allocation
-  measurements are available in the [admission report](POOL_DISPATCH_PERFORMANCE.md).
-- Reduce coordination within the existing Tokio task model. Inline polling
-  reduced Linux handoffs but regressed Windows and concentrated operation polls
-  in one dispatcher; its code and Cargo feature were removed.
-- Consider caller-side execution only with a design that preserves independent
-  shutdown cancellation. An unpolled caller must not keep an operation alive or
-  prevent teardown; this contract now has an explicit regression test.
-- Examine redundant notifications, cancellation queue scans, boxed jobs, result
-  channels, and repeated subscriptions before choosing an implementation.
+Disarming completion notifications did not resolve the slowdown. Targeted wakeups
+and uncontended admission improved some captured cases but left coordination costs
+open. Inline polling regressed Windows and was removed. The direct proxy is an
+available alternative for concurrency-safe resources, with caller-owned futures
+and different shutdown guarantees; it does not replace pooled exclusivity/draining.
 
-The first retained cleanup disarms cancellation notifications after a completed
-call. The [repeat benchmark](MQTT_PERFORMANCE.md#removing-redundant-completion-notifications)
-found no meaningful throughput/CPU improvement, so this is not considered a solution
-to the main slowdown. The larger investigation remains open.
+### Acceptance for a retained change
 
-The next retained change uses targeted dispatcher notifications and removes the
-dispatcher's duplicate capacity subscription/acquisition allocation. The
-[comparison](MQTT_PERFORMANCE.md#targeted-dispatcher-wakeups) suggests about 10%
-lower pooled WSL default-runtime CPU and 18% higher throughput at sixteen callers,
-with little change to Windows default throughput. Three-caller WSL default
-throughput still shows the original large penalty. More runs and workloads are
-needed; remaining coordination costs have not been isolated.
+Preserve exclusive leases and capacity limits, FIFO/priority ordering, custom queue
+rejection, readiness, queued/running cancellation, retry deadlines, recovery
+isolation and cancellation-safe shutdown. Demonstrate slow-operation concurrency
+and fairness alongside the comparison matrix above. Pass regression tests and
+recovery demos, add focused tests for changed execution behavior and record
+measurements and limitations in the performance reports.
 
-Completion criteria:
-
-- Reproduce the existing benchmark baseline, then compare the candidate against
-  manual, direct-supervisor, and current pooled implementations with 1, 3, and 16
-  callers on current-thread, two-worker, and default runtimes. Measure throughput,
-  tail latency, CPU, context switches, and allocations; report platform variation.
-- Preserve exclusive leases and capacity limits, FIFO and priority ordering,
-  custom queue rejection, readiness gating, cancellation of queued and running
-  calls, retry deadlines, recovery isolation, and cancellation-safe shutdown.
-- Check slow operations and multiple pool slots as well as tiny MQTT publishes,
-  so reducing dispatch overhead does not sacrifice useful concurrency or fairness.
-- Pass the existing regression tests and recovery demos, add focused regressions
-  for any changed execution behavior, and update the performance guide with results.
-
-The [inline dispatch experiment](MQTT_PERFORMANCE.md#inline-dispatch-experiment)
-records the discarded prototype and platform tradeoffs. The retained
-[uncontended admission path](POOL_DISPATCH_PERFORMANCE.md) removes three allocation
-events when a ready built-in pool has no queued work or public waiters. WSL default
-MQTT throughput improved about 19% with one caller and 15% with three; Windows default
-changed little and some contended instrumented cases slowed. Delayed operations
-and blocked borrowers retained four-slot concurrency. The shared task registry's
-coordination cost and remaining handoffs still need work. Real slow transports,
-independently scheduled borrower stress, Windows CPU, macOS, and non-WSL Linux
-measurements remain outstanding. Runtime selection is a diagnostic control, not
-a universal workaround.
-
-The [generated direct proxy](MQTT_PERFORMANCE.md#generated-direct-supervision-proxy)
-now provides the same typed application methods for concurrency-safe resources
-without pool dispatch. Its MQTT throughput remains comparable with the manual
-coordinator in the captured runs. It is an explicit alternative with caller-owned
-operation futures, not a replacement for exclusive leases, custom queue policies,
-or independent operation draining during pool shutdown. Optimising those pooled
-guarantees remains open.
-
-## Delivered framework work
-
-Lifecycle failure policies, operation classification, checked configuration and
-shutdown resource ownership shipped in 0.4.0. Bounded FIFO admission and
-single-attempt call/readiness timeouts shipped in 0.4.1. RetireOnDrop and the
-internal module split shipped in 0.4.2. The subsequent registration/deadline/FIFO
-cleanup remains unreleased. Rocsteady adoption is complete; protocol behavior and
-future adapter migrations remain downstream responsibilities.
-
-Use the [feature contracts](LIFECYCLE_POLICIES.md), [release verification](RELEASE.md)
-and [changelog](../CHANGELOG.md) for behavior and evidence. The historical
-[implementation plan](LIFECYCLE_IMPROVEMENTS.md) records the original scope decisions.
+Implemented features and cleanup belong in the [changelog](../CHANGELOG.md),
+current contracts in [lifecycle policies](LIFECYCLE_POLICIES.md), and release
+verification in [RELEASE.md](RELEASE.md).
