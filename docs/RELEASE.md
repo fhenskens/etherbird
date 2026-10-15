@@ -22,9 +22,17 @@ against this candidate, including cross-client/stale-handle rejection, cancellat
 between exchanges, explicit partial/uncertain effects and no replay. This local
 path-patched check precedes publication; registry adoption is verified separately.
 
-Hosted release-commit CI and a clean publication dry-run remain gates before
-publication. Publication/tag/registry VCS provenance are verified separately; a
-candidate version and local checks alone do not establish release completion.
+Published 2026-10-15 after the clean `cargo publish --dry-run --locked` and
+[all seven hosted platform/serial jobs](https://github.com/fhenskens/etherbird/actions/runs/38725355730)
+passed for release commit `695b33e0166b0ee63031fe952dcd01abd1d759f3`.
+The downloaded crates.io package's VCS metadata identifies that clean commit;
+its SHA-256 is `d86ce99e5991c9c4db18ca3447d81debaf3fc58a40bc508293c789bb679de903`.
+The pushed annotated v0.4.3 tag targets the same commit and the
+[GitHub release](https://github.com/fhenskens/etherbird/releases/tag/v0.4.3) is published.
+Rocsteady resolves the registry artifact without a sibling path override.
+
+[crates.io 0.4.3](https://crates.io/crates/etherbird/0.4.3) ·
+[API docs](https://docs.rs/etherbird/0.4.3/etherbird/)
 
 ## Historical 0.4.2 release
 
@@ -68,7 +76,7 @@ Rocsteady removed its temporary sibling path and adopted the registry crate.
 
 The subsequent internal registration/deadline/FIFO cleanup also passed
 [all seven hosted jobs](https://github.com/fhenskens/etherbird/actions/runs/38547036690).
-That cleanup is included in the 0.4.3 candidate alongside the new helpers.
+That cleanup is included in the published 0.4.3 release alongside the new helpers.
 
 ## Checks for the next release
 

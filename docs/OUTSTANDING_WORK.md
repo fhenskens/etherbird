@@ -2,12 +2,13 @@
 
 ## Current handoff — 2026-10-15
 
-- **Release candidate:** 0.4.3 adds generation-bound adapter values and incomplete
+- **Published:** 0.4.3 adds generation-bound adapter values and incomplete
   exclusive-scope disconnection, alongside the previously committed internal
   registration/deadline/FIFO cleanup. Both helpers are optional to use in the main
   library; protocol validation and remote effects remain adapter responsibilities.
-- **Release status:** local/downstream verification and publication evidence are
-  tracked in [RELEASE.md](RELEASE.md). Do not infer publication from a version bump.
+- **Release evidence:** all seven hosted platform/serial jobs, the clean dry-run,
+  crates.io publication, pushed tag and downloaded-package provenance are verified;
+  see [RELEASE.md](RELEASE.md). Rocsteady adopts registry 0.4.3 and its helpers.
 - **Open:** the pool-dispatch performance investigation below. Retained incremental
   improvements have not resolved the main scheduling cost. The inline-polling
   experiment was discarded; no such feature or implementation is in progress.
