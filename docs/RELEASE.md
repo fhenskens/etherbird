@@ -1,4 +1,33 @@
-# Release 0.4.2
+# Release 0.4.3
+
+Compatible adapter helpers: `Generation`/`GenerationValue<T>` distinguish resource
+identities without numeric-counter collisions. `DisconnectOnDrop<G>` signals loss
+before releasing an interrupted exclusive scope, including between exchanges.
+Both are available without feature flags or added dependencies. Adapters retain
+live-state checks, protocol decoding, safe-completion decisions and remote outcomes.
+See [lifecycle contracts](LIFECYCLE_POLICIES.md#adapter-generation-identity-and-exclusive-scopes).
+
+## 0.4.3 verification
+
+Local macOS ARM64 / stable Rust checks passed: default and all-feature/all-target
+suites, six doctests, strict Clippy, formatting and rustdoc. Eight new helper tests
+cover identity isolation, redaction/value ownership, interruption between exchanges,
+timeout, panic/early return, safe completion and notification-before-unlock ordering.
+The new `adapter_scopes` example runs with default and pool features and is included
+in hosted CI. Offline package verification and an external extracted-package
+consumer passed in both configurations.
+
+Rocsteady's downstream suite passed 244 all-feature/all-target tests and 22 doctests
+against this candidate, including cross-client/stale-handle rejection, cancellation
+between exchanges, explicit partial/uncertain effects and no replay. This local
+path-patched check precedes publication; registry adoption is verified separately.
+
+Hosted release-commit CI and a clean publication dry-run remain gates before
+publication. Publication/tag/registry VCS provenance are verified separately; a
+candidate version and local checks alone do not establish release completion.
+
+## Historical 0.4.2 release
+
 
 Release date: 2026-10-14. This compatible release adds the optional public
 `RetireOnDrop<T>` adapter helper and standardizes lowercase `etherbird` branding.
@@ -39,8 +68,7 @@ Rocsteady removed its temporary sibling path and adopted the registry crate.
 
 The subsequent internal registration/deadline/FIFO cleanup also passed
 [all seven hosted jobs](https://github.com/fhenskens/etherbird/actions/runs/38547036690).
-It remains unreleased; the crate version is still 0.4.2. No public feature or
-contract change requires a separate release for current rocsteady consumers.
+That cleanup is included in the 0.4.3 candidate alongside the new helpers.
 
 ## Checks for the next release
 
@@ -54,7 +82,7 @@ cargo doc --locked --all-features --no-deps
 cargo publish --dry-run --locked
 ```
 
-For a future release, select a new version, review its payload and publish only
+For each release, select a new version, review its payload and publish only
 a clean commit after dry-run and CI success. Push the corresponding tag and verify
 the registry package. Repeat downstream consumer checks before recommending an
 adapter dependency update; completed 0.4.2 adoption is not an outstanding task.

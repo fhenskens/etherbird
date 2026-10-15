@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.4.3 — 2026-10-15
+
+- Add optional-to-use `Generation`, `GenerationValue<T>` and `GenerationMismatch`
+  adapter helpers. Opaque identities distinguish replacements, clients and pool
+  slots without relying on numeric generation counters; bound values are redacted.
+- Add `DisconnectOnDrop<G>` for adapter-owned exclusive setup/workflow scopes.
+  Incomplete drop signals connection loss before releasing ownership, including
+  interruption between exchanges; safe completion is explicit.
+- Keep both helpers in the main library without feature flags, new dependencies,
+  automatic retries or protocol-outcome inference. Add focused regression tests
+  and downstream rocsteady adoption coverage.
+
 - Share named setter/value registration mechanics between Supervisor and Pool
   while retaining their locks and application ordering.
 - Use the common call-deadline wrapper for retry scopes, including queued calls

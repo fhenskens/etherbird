@@ -61,3 +61,65 @@ impl<T> Drop for RetireOnDrop<'_, T> {
         }
     }
 }
+
+/// Signal connection loss before releasing ownership of an incomplete scope.
+///
+/// An adapter passes an already-acquired exclusive ownership guard and holds this
+/// helper across its entire setup or multi-exchange workflow. Unlike
+/// [`RetireOnDrop`], this helper does not borrow or clear the stream slot: it also
+/// covers interruption *between* exchanges when no stream guard is held.
+/// The adapter must check the connection indicator before subsequent I/O and
+/// arrange teardown/recovery (for example through `Lifecycle::watch_disconnect`).
+///
+/// Incomplete drop publishes `false` synchronously before dropping `ownership`,
+/// including cancellation, timeout and panic unwinding. Call [`Self::complete`]
+/// only when releasing ownership is safe, including a validated healthy rejection.
+/// Completion never changes a disconnected indicator back to connected.
+///
+/// This helper neither acquires a lock nor makes an arbitrary value exclusive.
+/// It adds no retries, remote cancellation, outcome inference or async cleanup.
+/// It is usable without the pool feature and does not change supervisor defaults.
+///
+/// ```
+/// use etherbird::DisconnectOnDrop;
+/// let ownership = std::sync::Mutex::new(());
+/// let connected = tokio::sync::watch::channel(true).0;
+/// {
+///     let mut scope = DisconnectOnDrop::new(ownership.lock().unwrap(), &connected);
+///     // Perform and validate the complete workflow while ownership is held.
+///     scope.complete();
+/// }
+/// assert!(*connected.borrow());
+/// {
+///     let _interrupted = DisconnectOnDrop::new(ownership.lock().unwrap(), &connected);
+/// }
+/// assert!(!*connected.borrow());
+/// ```
+#[must_use = "hold the scope across the workflow and explicitly complete safe outcomes"]
+pub struct DisconnectOnDrop<'a, G> {
+    _ownership: G,
+    connected: &'a watch::Sender<bool>,
+    complete: bool,
+}
+impl<'a, G> DisconnectOnDrop<'a, G> {
+    pub fn new(ownership: G, connected: &'a watch::Sender<bool>) -> Self {
+        Self {
+            _ownership: ownership,
+            connected,
+            complete: false,
+        }
+    }
+    /// Permit release without signalling a new connection loss.
+    pub fn complete(&mut self) {
+        self.complete = true;
+    }
+}
+impl<G> Drop for DisconnectOnDrop<'_, G> {
+    fn drop(&mut self) {
+        if !self.complete {
+            self.connected.send_replace(false);
+        }
+        // Rust drops the owned guard after this body, so a successor cannot
+        // acquire ownership before the disconnected indicator is published.
+    }
+}

@@ -2,13 +2,12 @@
 
 ## Current handoff — 2026-10-15
 
-- **Published:** 0.4.2 supplies RetireOnDrop and the existing lifecycle, admission,
-  timeout and shutdown contracts. Rocsteady 0.1.0 depends on registry 0.4.2;
-  downstream registry adoption and package-consumer checks are complete.
-- **Implemented but unreleased:** shared named-value registration, common retry
-  deadline handling and FIFO storage reuse, with retry/cancellation/shutdown
-  regressions. These internal changes are committed; see [Unreleased](../CHANGELOG.md#unreleased).
-  They do not require a release solely for rocsteady's current functionality.
+- **Release candidate:** 0.4.3 adds generation-bound adapter values and incomplete
+  exclusive-scope disconnection, alongside the previously committed internal
+  registration/deadline/FIFO cleanup. Both helpers are optional to use in the main
+  library; protocol validation and remote effects remain adapter responsibilities.
+- **Release status:** local/downstream verification and publication evidence are
+  tracked in [RELEASE.md](RELEASE.md). Do not infer publication from a version bump.
 - **Open:** the pool-dispatch performance investigation below. Retained incremental
   improvements have not resolved the main scheduling cost. The inline-polling
   experiment was discarded; no such feature or implementation is in progress.

@@ -23,6 +23,8 @@ jobs:
       - run: cargo doc --no-deps ${{ matrix.features }}
       - run: cargo build --examples --locked ${{ matrix.features }}
         timeout-minutes: 10
+      - run: cargo run --locked ${{ matrix.features }} --example adapter_scopes
+        timeout-minutes: 2
       - run: cargo run --locked ${{ matrix.features }} --example managed_client
         timeout-minutes: 2
       - run: cargo run --locked --features pool --example scheduling

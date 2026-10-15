@@ -196,3 +196,34 @@ let pool = Pool::try_new_with_queue_factory(
 Protocol deadlines, response validation, heartbeat coordination and compatibility
 error mapping remain adapter concerns. See [release verification](RELEASE.md) for
 the tested environments and external-consumer evidence.
+
+## Adapter generation identity and exclusive scopes
+
+These helpers are available with default features and with `pool`. They are
+optional to use, add no dependencies and do not alter dispatch or retry defaults.
+
+Create a fresh `Generation` token for each adapter session/reconnection, including
+in-place reconnects. Keep it private, clone it only within that generation and
+bind remote handles or metadata with `token.bind(value)`. Access through
+`GenerationValue::get(&current_token)` returns `GenerationMismatch` for any other
+token, including another client's or slot's equal numeric generation. Tokens have
+no persistence/serialization meaning and do not establish remote identity or
+readiness. The adapter must check its live connection indicator as well. Previously
+borrowed references or copied values cannot be revoked by this helper; bound
+values expose no unchecked extraction accessor and Debug redacts their contents.
+
+Hold `DisconnectOnDrop::new(ownership_guard, &connected)` across an exclusive
+setup or workflow. The adapter acquires the lock first. Incomplete scope drop
+publishes connection loss before releasing that guard, including between exchanges
+when no `RetireOnDrop` stream guard exists. Subsequent I/O must check the indicator;
+a disconnect watcher/adapter teardown closes the transport. `complete()` explicitly
+permits safe release, including a validated healthy rejection, and never restores
+an already-disconnected indicator. The scope helper does not acquire locks, close
+an async stream, cancel remote effects, infer acknowledgement or execute cleanup.
+Keep `RetireOnDrop` around each exchange through decoding to clear interrupted
+stream slots immediately. The two helpers cover different ownership boundaries.
+
+Executable contracts: [generation identities/redaction/value ownership](../tests/generation.rs),
+[scope cancellation/deadline/panic/early-return/completion and release ordering](../tests/scopes.rs)
+and [per-exchange retirement](../tests/retirement.rs). Rocsteady exercises public
+adapter composition, stale handles, workflow cancellation and no replay.

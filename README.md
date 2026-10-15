@@ -29,9 +29,13 @@ logic, such as authentication, subscriptions, or a device handshake.
   without opting into replay. Shutdown takes precedence over timeout expiry.
 - **Bounded FIFO admission:** use `BoundedFifoQueue` with a queue factory to reject
   excess waiting calls without writing a custom queue.
-- **Adapter cancellation helper (0.4.2):** `RetireOnDrop` clears an
+- **Adapter cancellation helpers:** `RetireOnDrop` clears an
   incomplete exchange's resource slot and signals connection loss. The adapter
   explicitly confirms valid replies, including healthy device rejections.
+- **Exclusive-scope interruption:** `DisconnectOnDrop` signals connection loss
+  before releasing adapter ownership when setup or a multi-exchange scope is interrupted.
+- **Generation-bound adapter state:** opaque `Generation` tokens prevent handles
+  from matching another connection, client or pool slot. Adapters check readiness.
 - **Explicit operation retries:** calls run once by default. Safe-to-repeat calls
   can opt into an attempt limit, overall deadline, and error predicate.
 - **Observable state and orderly shutdown:** connection indicators, state notifications,
@@ -45,9 +49,9 @@ Start with direct supervision for a client that supports concurrent calls. Enabl
 pooling when resources need exclusive access, capacity limits, or queued scheduling.
 
 ```toml
-etherbird = "0.4.2"
+etherbird = "0.4.3"
 # With pooling:
-# etherbird = { version = "0.4.2", features = ["pool"] }
+# etherbird = { version = "0.4.3", features = ["pool"] }
 ```
 
 The API is experimental. See the [managed client guide](docs/MANAGED_CLIENTS.md)
@@ -165,7 +169,7 @@ client.managed.stop().await;
 let sample = result?;
 ```
 
-### 4. Combine recovery, configuration, scheduling, and retries
+### 4. Combine recovery, configuration, scheduling, deadlines and retries
 
 This builds on the same `Client` and `Hooks`. The resource additionally provides
 short synchronous `set_gain(u16)` and `gain() -> u16` methods. Its adapter's `setup`
@@ -207,9 +211,15 @@ let client = Client::from_pool(pool.clone());
 assert_eq!(client.managed.value::<u16>("gain"), Some(2));
 
 let result = async {
-    client.managed.connected().await?;
+    client.managed.connected_with_timeout(Duration::from_secs(5)).await?;
     let first = client.read().await?; // Ordinary calls still run once.
     let gain = client.managed.attribute(|resource| resource.gain());
+
+    // Bound queueing, readiness and execution of one attempt; no replay.
+    let bounded = pool.execute_with_timeout(
+        Duration::from_secs(2),
+        |resource| async move { resource.read().await },
+    ).await?;
 
     // Lower numbers have higher priority. Retry this read only, within one deadline.
     let sample = pool.execute_with_priority_and_retry(
@@ -227,7 +237,7 @@ let result = async {
     let lease = pool.borrow().await?;
     let reserved = lease.execute(|resource| async move { resource.read().await }).await?;
     lease.release();
-    Ok::<_, etherbird::Error<io::Error>>((first, sample, reserved, gain))
+    Ok::<_, etherbird::Error<io::Error>>((first, bounded, sample, reserved, gain))
 }.await;
 
 // Cancel and drain managed work, then tear down every resource, even on error.
@@ -240,6 +250,29 @@ Use `BoundedFifoQueue` for bounded waiting admission, or a
 `FifoQueue` and `PriorityQueue` are unbounded. State watchers
 can await `changes.changed()` and inspect `pool.state()`. Configure a `tracing`
 subscriber to collect lifecycle diagnostics.
+
+### 5. Protect adapter handles and multi-exchange scopes
+
+The combined application example calls an adapter that owns connection safety.
+Inside that adapter, create a private `Generation` token for each new session and
+bind remote handles with `generation.bind(value)`. Validate the token and live
+connection state before using a handle. Hold
+`DisconnectOnDrop::new(ownership_guard, &connected)` across setup or a complete
+multi-exchange operation; call `complete()` only when releasing ownership is safe.
+Interruption signals loss before unlocking, even between exchanges. Keep
+`RetireOnDrop` around each actual exchange through reply validation.
+
+The [runnable adapter example](examples/adapter_scopes.rs) demonstrates successful
+same-generation use, local rejection by a replacement session, and retirement on
+a deadline between exchanges. It runs with default features and with pooling:
+
+```sh
+cargo run --locked --example adapter_scopes
+cargo run --locked --features pool --example adapter_scopes
+```
+
+See [adapter contracts](docs/LIFECYCLE_POLICIES.md#adapter-generation-identity-and-exclusive-scopes)
+for token lifetime, readiness, ownership and teardown responsibilities.
 
 Retry only operations that are safe to repeat: a disconnected write may already
 have taken effect remotely. Completion retains the underlying client's meaning;

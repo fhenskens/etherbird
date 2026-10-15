@@ -23,6 +23,8 @@ clients default to direct supervision even when pooling is enabled.
 | Non-retryable lifecycle failures | `lifecycle_failure` can latch a typed cause, suspend attempts and fail readiness/admission until explicit reset; healthy pool slots remain usable |
 | Healthy operation errors | `operation_failure` can retain the resource while returning the original error; replay remains explicitly opt-in |
 | Checked configuration | `validate` and checked Supervisor/Pool constructors report field-specific errors before lifecycle work |
+| Generation-bound adapter values | `Generation::bind` and `GenerationValue::get` distinguish sessions/clients/slots; adapters retain readiness and token replacement responsibility |
+| Interrupted exclusive adapter scopes | `DisconnectOnDrop` signals connection loss before releasing an incomplete scope's ownership guard; `RetireOnDrop` clears individual interrupted exchanges |
 | Independent resource supervision | Each pool entry owns its own supervisor and connection generation |
 | Awaited manual recovery | `recover(...).await`, `recover_current`; completion means teardown, not reconnection |
 | Reject stale recovery reports | Identity and generation checks, including foreign handles |

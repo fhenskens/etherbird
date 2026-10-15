@@ -24,13 +24,15 @@ mod call;
 mod driver;
 use call::{shutdown, with_call_timeout};
 use driver::{WorkerStatus, maintain};
+mod generation;
 mod proxy;
 mod retirement;
+pub use generation::{Generation, GenerationMismatch, GenerationValue};
 mod validation;
 pub use proxy::{ManagedClientBackend, SupervisedResourceProxy};
 #[cfg(feature = "pool")]
 pub use queue::{BoundedFifoQueue, FifoQueue, OperationQueue, PriorityQueue, QueueError};
-pub use retirement::RetireOnDrop;
+pub use retirement::{DisconnectOnDrop, RetireOnDrop};
 pub use validation::ConfigError;
 
 /// Protocol-specific lifecycle hooks. Resources usually contain their own interior mutability.
